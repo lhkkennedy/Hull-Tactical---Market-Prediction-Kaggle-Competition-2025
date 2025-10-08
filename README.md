@@ -9,7 +9,7 @@ We have already defined the server; you just need write the predict function.
 When we evaluate your submission on the hidden test set the client defined in `default_gateway` will run in a different container
 with direct access to the hidden test set and hand off the data timestep by timestep.
 
-Your code will always have access to the published copies of the copmetition files.
+Your code will always have access to the published copies of the competition files.
 
 ```
 import os
