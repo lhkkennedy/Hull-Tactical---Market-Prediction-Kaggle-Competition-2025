@@ -1,0 +1,27 @@
+# venvs
+.venv/
+venv/
+env/
+Lib/
+Scripts/
+Include/
+pyvenv.cfg
+share/
+
+# data & outputs
+kaggle/input/
+submission.parquet
+
+# python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# jupyter
+.ipynb_checkpoints/
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
