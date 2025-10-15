@@ -9,7 +9,6 @@ pyvenv.cfg
 share/
 
 # data & outputs
-kaggle/input/
 submission.parquet
 
 # python cache

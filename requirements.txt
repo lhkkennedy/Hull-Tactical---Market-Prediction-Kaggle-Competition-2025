@@ -16,3 +16,6 @@ protobuf>=4.25,<6
 kaggle>=1.6,<2
 
 ipykernel
+
+lightgbm
+xgboost
