@@ -1,0 +1,2 @@
+model_type,label,feature_level,best_value,best_xgb_max_depth,best_xgb_min_child_weight,best_xgb_subsample,best_xgb_colsample_bytree,best_xgb_learning_rate,best_xgb_n_estimators,best_xgb_reg_lambda,best_xgb_reg_alpha
+xgbnone,final,none,-0.0016559721404409238,5,20,0.7391963650868432,0.659195090518222,0.0018410729205738682,792,0.1360354613611808,4.330880728874676

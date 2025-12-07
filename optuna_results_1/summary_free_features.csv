@@ -1,0 +1,7 @@
+model_type,label,best_value,best_feature_level,best_ridge_alpha,best_lasso_alpha,best_enet_alpha,best_enet_l1_ratio,best_lgbm_num_leaves,best_lgbm_max_depth,best_lgbm_learning_rate,best_lgbm_min_child_samples,best_lgbm_subsample,best_lgbm_colsample_bytree,best_lgbm_n_estimators,best_lgbm_reg_alpha,best_lgbm_reg_lambda,best_xgb_max_depth,best_xgb_min_child_weight,best_xgb_subsample,best_xgb_colsample_bytree,best_xgb_learning_rate,best_xgb_n_estimators,best_xgb_reg_lambda,best_xgb_reg_alpha
+ols,free_features,-7.64101011520447,none,,,,,,,,,,,,,,,,,,,,,
+ridge,free_features,-0.07134510660022235,none,998.8973245084276,,,,,,,,,,,,,,,,,,,,
+lasso,free_features,0.0037162808470669515,simple,,0.0003803991692997585,,,,,,,,,,,,,,,,,,,
+elastic,free_features,0.00370862577385996,simple,,,0.0016644996335874432,0.22941157478379956,,,,,,,,,,,,,,,,,
+lgbm,free_features,-0.0001525930812758721,medium,,,,,33.0,3.0,0.023574513359280767,18.0,0.6054447933591248,0.8670192081239578,602.0,1.015840757214098,4.5269276721252405,,,,,,,,
+xgb,free_features,0.0007192782871967193,medium,,,,,,,,,,,,,,10.0,14.0,0.7017913342348783,0.31454923529156387,0.001670172326574308,397.0,2.0083513854990738,0.4570842824345497

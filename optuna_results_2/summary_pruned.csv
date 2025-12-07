@@ -1,0 +1,7 @@
+model_type,label,best_value,best_selector__k,best_ridge_alpha,best_lasso_alpha,best_enet_alpha,best_enet_l1_ratio,best_lgbm_num_leaves,best_lgbm_max_depth,best_lgbm_learning_rate,best_lgbm_min_child_samples,best_lgbm_subsample,best_lgbm_colsample_bytree,best_lgbm_n_estimators,best_lgbm_reg_alpha,best_lgbm_reg_lambda,best_xgb_max_depth,best_xgb_min_child_weight,best_xgb_subsample,best_xgb_colsample_bytree,best_xgb_learning_rate,best_xgb_n_estimators,best_xgb_reg_lambda,best_xgb_reg_alpha
+ols,pruned,0.001391881667360891,3,,,,,,,,,,,,,,,,,,,,,
+ridge,pruned,0.002997041822762355,3,984.7332359692848,,,,,,,,,,,,,,,,,,,,
+lasso,pruned,0.00048191066865147886,152,,0.0005394030249454191,,,,,,,,,,,,,,,,,,,
+elastic,pruned,0.0027454926692700443,3,,,0.0003104617730487974,0.7149315543919139,,,,,,,,,,,,,,,,,
+lgbm,pruned,0.0003094365481967065,117,,,,,70.0,3.0,0.019880153545036697,41.0,0.5901282617044841,0.8663754387959836,710.0,0.8782953076952817,3.4838410887142506,,,,,,,,
+xgb,pruned,0.004724310234548039,250,,,,,,,,,,,,,,5.0,2.0,0.827025700753371,0.5355730494720568,0.001139334114661753,900.0,2.2513306674580766,0.12268958046372215
