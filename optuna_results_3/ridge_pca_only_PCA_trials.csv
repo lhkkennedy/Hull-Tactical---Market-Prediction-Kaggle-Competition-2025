@@ -1,0 +1,6 @@
+number,value,datetime_start,datetime_complete,duration,params_ridge_alpha,user_attrs_feat_level,user_attrs_label,user_attrs_model_type,user_attrs_pca_mode,user_attrs_use_PCA,state
+0,-2782.2682532238778,2025-12-08 03:12:34.708916,2025-12-08 03:12:36.033114,0 days 00:00:01.324198,0.8841499243325358,extensive,final,ridge,pca_only,True,COMPLETE
+1,-3868.34467944202,2025-12-08 03:12:36.034118,2025-12-08 03:12:37.366295,0 days 00:00:01.332177,14.524892293963823,extensive,final,ridge,pca_only,True,COMPLETE
+2,-4220.927620957171,2025-12-08 03:12:37.366295,2025-12-08 03:12:38.678573,0 days 00:00:01.312278,0.02285357633090636,extensive,final,ridge,pca_only,True,COMPLETE
+3,-4041.1178379126127,2025-12-08 03:12:38.678573,2025-12-08 03:12:39.999302,0 days 00:00:01.320729,0.010438279132848649,extensive,final,ridge,pca_only,True,COMPLETE
+4,-3847.4999226733016,2025-12-08 03:12:39.999813,2025-12-08 03:12:41.318461,0 days 00:00:01.318648,0.0004094289521917493,extensive,final,ridge,pca_only,True,COMPLETE

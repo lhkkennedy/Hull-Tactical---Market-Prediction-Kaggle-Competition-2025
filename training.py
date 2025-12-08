@@ -19,8 +19,9 @@ from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 
 from config import FEATURE_LEVEL_CONFIGS
 from models import make_model, make_elasticnet, make_xgb
-from pipeline import create_pipeline, get_final_estimator
+from pipeline import create_pipeline, get_final_estimator, create_pca_training_pipeline
 from features import PrecomputedTopKSelector
+from experiments import prepare_pca_metadata
 
 def transform_through_preproc(pipe, X):
     """
@@ -96,131 +97,75 @@ def ts_cross_val_score(pipe, X, y, n_splits=3, use_early_stopping=False, es_roun
     scores = cross_val_score(pipe, X, y, cv=tscv, scoring="r2", n_jobs=-1)
     return scores
 
-def optuna_objective(
-    trial: optuna.Trial,
-    X: pd.DataFrame,
-    y: pd.Series,
-    model_type: str = "xgb",
-    n_splits: int = 3,
-    feat_level: str = None,
-    prune_features: bool = False,
-    sorted_features: bool = False,
-) -> float:
-    """
-    Single Optuna objective:
-    - choose feature level (none / simple / medium / extensive)
-    - configure preproc toggles
-    - build model via make_model(...)
-    - wrap everything in create_pipeline(...)
-    - evaluate with time-series CV
-    """
-
-    X_local = X.copy()
-    
-    trial.set_user_attr("feature_level", feat_level)
-
-
-    # 2) build base model with its own hyperparams
-    model = make_model(trial, model_type=model_type)
-
-
-    selector = None
-    if prune_features and sorted_features is not None:
-        k_max = min(500, len(sorted_features))
-        k = trial.suggest_int("selector__k", 1, k_max)
-        trial.set_user_attr("top_k_features", k)
-        selector = PrecomputedTopKSelector(feature_ranking=sorted_features, k=k, verbose=True)
-
-
-    # 3) build full pipeline skeleton
-    pipe = create_pipeline(model, selector=selector)
-
-
-    # 4) apply coarse configuration for this feature level
-    pipe.set_params(**FEATURE_LEVEL_CONFIGS[feat_level])
-
-    # # 5) fine-grained preproc toggles (example, expand as needed)
-    # if level in ("medium", "extensive"):
-    #     # Momentum feature toggles
-    #     pipe.set_params(
-    #         momentum__use_mean=trial.suggest_categorical(
-    #             "momentum__use_mean", [True, False]
-    #         ),
-    #         momentum__use_std=trial.suggest_categorical(
-    #             "momentum__use_std", [True, False]
-    #         ),
-    #     )
-    # ...
-
-    # 6) evaluate with time-series CV
-    scores = ts_cross_val_score(
-        pipe,
-        X_local,
-        y,
-        n_splits=n_splits,
-    )
-    # scores should already be "higher is better" (R², Sharpe, etc.)
-    return float(np.mean(scores))
-
 def run_optuna_for_model(
     X: pd.DataFrame,
     y: pd.Series,
-    model_type: Literal[
-        "ols", "ridge", "lasso", "elastic", "lgbm", "xgb"
-    ] = "xgb",
-    n_trials: int = 50,
-    n_splits: int = 3,
-    direction: str = "maximize",
-    storage: str | None = None,
-    feat_level: str | None = None,
+    model_type: str,
+    n_trials: int,
+    n_splits: int,
+    direction: str,
     prune_features: bool = False,
+    use_PCA: bool = False,
+    pca_mode: str | None = None,
+    pca_meta: dict | None = None,
+    feat_level: str = "none",
+    label: str = "final",
+    feature_ranking: list[str] | None = None,
 ) -> optuna.Study:
-    prune_str = "prune" if prune_features else "no_prune"
-    study_name = f"{model_type}_study_{feat_level}_{prune_str}"
+    """
+    Run Optuna for a given model_type (optionally with PCA + feature pruning).
+    """
 
-    sampler = TPESampler(seed=42)
+    def objective(trial: optuna.Trial) -> float:
+        # 1) build model from this trial's hyperparameters
+        model = make_model(trial, model_type=model_type)
 
-    study = optuna.create_study(
-        direction=direction,
-        sampler=sampler,
-        study_name=study_name,
-        storage=storage,
-        load_if_exists=bool(storage),
-    )
+        # 2) optional top-k selector
+        selector = None
+        if prune_features and feature_ranking is not None:
+            k_max = min(500, len(feature_ranking))
+            k = trial.suggest_int("selector__k", 1, k_max)
+            trial.set_user_attr("top_k_features", k)
+            selector = PrecomputedTopKSelector(
+                feature_ranking=feature_ranking,
+                k=k,
+                verbose=True,
+            )
 
-    # precompute sorted features in RAW space
-    sorted_features = None
-    if prune_features:
-        if model_type in ["elastic", "lasso", "ridge", "ols"]:
-            sorted_features = SortFeaturesByCorrElastic(X, y)
-        elif model_type in ["xgb", "lgbm"]:
-            sorted_features = SortFeaturesByImportanceXGB(X, y)
+        # 3) build pipeline
+        if use_PCA:
+            if pca_mode is None or pca_meta is None:
+                raise ValueError("use_PCA=True but pca_mode or pca_meta is None")
 
-    def _objective(trial: optuna.Trial) -> float:
-        return optuna_objective(
-            trial=trial,
-            X=X,
-            y=y,
-            model_type=model_type,
-            n_splits=n_splits,
-            feat_level=feat_level,
-            prune_features=prune_features,
-            sorted_features=sorted_features,
-        )
+            pipe = create_pca_training_pipeline(
+                model=model,
+                selector=selector,
+                pca_mode=pca_mode,
+                pca_meta=pca_meta,
+                feature_level="medium",  # PCA runs fixed at 'medium'
+            )
+        else:
+            pipe = create_pipeline(model=model, selector=selector)
+            pipe.set_params(**FEATURE_LEVEL_CONFIGS[feat_level])
 
-    study.optimize(
-        _objective,
-        n_trials=n_trials,
-        show_progress_bar=True,
-    )
+        # 4) store metadata
+        trial.set_user_attr("model_type", model_type)
+        trial.set_user_attr("label", label)
+        trial.set_user_attr("feat_level", feat_level)
+        trial.set_user_attr("use_PCA", use_PCA)
+        trial.set_user_attr("pca_mode", pca_mode)
 
-    print(f"[{model_type} | feat_level={feat_level}] Best value: {study.best_value}")
-    print(f"Best params:")
-    for k, v in study.best_params.items():
-        print(f"  {k}: {v}")
-        print(study)
+        # 5) time-series CV
+        scores = ts_cross_val_score(pipe, X, y, n_splits=n_splits)
+        return float(np.mean(scores))
 
+    study_name = f"{model_type}_study_{label}"
+    study = optuna.create_study(direction=direction, study_name=study_name, sampler=TPESampler())
+    study.optimize(objective, n_trials=n_trials)
     return study
+
+
+PCA_MODES = ["pca_only", "pca_hybrid", "pca_block"]
 
 def run_all_models(
     X: pd.DataFrame,
@@ -229,31 +174,75 @@ def run_all_models(
     n_trials: int = 50,
     n_splits: int = 3,
     direction: str = "maximize",
-    fixed_features: bool = False,   # currently unused, keep if you plan to resurrect it
     prune_features: bool = False,
-) -> dict[tuple[str, str], optuna.Study]:
-    """
-    Returns dict with keys (model_type, feat_level) -> Study
-    """
-    studies: dict[tuple[str, str], optuna.Study] = {}
+    use_PCA: bool = False,
+    pca_modes: list[str] | None = None,
+) -> dict[str, optuna.Study]:
+    studies: dict[str, optuna.Study] = {}
 
-    for model_type in model_types:
-        for feat_level in FEATURE_LEVEL_CONFIGS.keys():
-            print(f"\n=== Running Optuna for {model_type} | {feat_level} ===")
-            study = run_optuna_for_model(
-                X=X,
-                y=y,
-                model_type=model_type,
-                n_trials=n_trials,
-                n_splits=n_splits,
-                direction=direction,
-                feat_level=feat_level,
-                prune_features=prune_features,
-            )
-            # key is now a tuple, not a mashed string
-            studies[(model_type, feat_level)] = study
+    if use_PCA:
+        # Prepare PCA metadata once
+        pca_meta = prepare_pca_metadata(X, y)
+        modes = pca_modes or PCA_MODES
+
+        for model_type in model_types:
+            for pca_mode in modes:
+                print(f"\n=== Running Optuna for {model_type} | {pca_mode} (PCA) ===")
+                study = run_optuna_for_model(
+                    X=X,
+                    y=y,
+                    model_type=model_type,
+                    n_trials=n_trials,
+                    n_splits=n_splits,
+                    direction=direction,
+                    prune_features=prune_features,
+                    use_PCA=True,
+                    pca_mode=pca_mode,
+                    pca_meta=pca_meta,
+                    feat_level="extensive",
+                )
+                studies[(model_type, pca_mode)] = study
+
+    else:
+        # your existing non-PCA logic
+        for model_type in model_types:
+            if not prune_features:
+                for feat_level in FEATURE_LEVEL_CONFIGS.keys():
+                    print(f"\n=== Running Optuna for {model_type} | {feat_level} ===")
+                    study = run_optuna_for_model(
+                        X=X,
+                        y=y,
+                        model_type=model_type,
+                        n_trials=n_trials,
+                        n_splits=n_splits,
+                        direction=direction,
+                        prune_features=prune_features,
+                        use_PCA=False,
+                        pca_mode=None,
+                        pca_meta=None,
+                        feat_level=feat_level,
+                    )
+                    studies[(model_type, feat_level)] = study
+            else:
+                feat_level = "extensive"
+                print(f"\n=== Running Optuna for {model_type} | {feat_level} ===")
+                study = run_optuna_for_model(
+                    X=X,
+                    y=y,
+                    model_type=model_type,
+                    n_trials=n_trials,
+                    n_splits=n_splits,
+                    direction=direction,
+                    prune_features=prune_features,
+                    use_PCA=False,
+                    pca_mode=None,
+                    pca_meta=None,
+                    feat_level=feat_level,
+                )
+                studies[(model_type, feat_level)] = study
 
     return studies
+
 
 def save_studies_to_disk(
     studies: dict[tuple[str, str], optuna.Study],

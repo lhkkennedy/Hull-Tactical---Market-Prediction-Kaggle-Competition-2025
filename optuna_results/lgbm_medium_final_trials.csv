@@ -1,3 +1,0 @@
-number,value,datetime_start,datetime_complete,duration,params_lgbm_colsample_bytree,params_lgbm_learning_rate,params_lgbm_max_depth,params_lgbm_min_child_samples,params_lgbm_n_estimators,params_lgbm_num_leaves,params_lgbm_reg_alpha,params_lgbm_reg_lambda,params_lgbm_subsample,user_attrs_feature_level,state
-0,-0.0016559720935109083,2025-12-07 18:49:52.551477,2025-12-07 18:49:56.480622,0 days 00:00:03.929145,0.5779972601681014,0.044803926826840625,12,64,420,88,4.330880728874676,2.416482602989751,0.5780093202212182,medium,COMPLETE
-1,-0.0016041826867279063,2025-12-07 18:49:56.486826,2025-12-07 18:50:01.428807,0 days 00:00:04.941981,0.5909124836035503,0.09138013915892866,3,85,897,110,1.5212112147976886,1.6124278458562613,0.6061695553391381,medium,COMPLETE

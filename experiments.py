@@ -6,7 +6,23 @@ Move PCA Experiment Logic:
 [run_pca_experiments](file:///c:/Users/lhkke/Documents/HullTactical/final_training_script.py)
 """
 
-
+import pandas as pd
+from data import time_train_test_split
+from pipeline import create_pipeline, create_pca_pipeline
+from models import make_ridge
+from config import EXCLUDED_COLS, FEATURE_LEVEL_CONFIGS, TARGET_COL, DATE_COL
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import r2_score
+from features import (
+    BaseCleaner,
+    TargetLagBuilder,
+    TargetMomentumFeatures,
+    CrossSectionalFeatureBuilder,
+    VolatilityIndicators,
+    dropExcludedCols,
+    MissingValueImputer,
+    PCATransformer,
+)
 def infer_pca_block_columns(X_sample: pd.DataFrame) -> list[str]:
     """
     Select columns for 'PCA + raw' hybrid approach.
@@ -51,11 +67,11 @@ def run_pca_experiments(X: pd.DataFrame, y: pd.Series):
     preproc_pipe = Pipeline(preproc_steps)
     
     preproc_pipe.fit(X_train, y_train)
-    X_train_feat = preproc_pipe.transform(X_train)
+    X_train_feat = X_train
+    for name, step in preproc_pipe.steps:
+        if hasattr(step, "transform"):
+            X_train_feat = step.transform(X_train_feat)
     
-    if not isinstance(X_train_feat, pd.DataFrame):
-        X_train_feat = pd.DataFrame(X_train_feat, index=X_train.index)
-
     # ---------------------------------------------------------
     # Option 1: PCA-only regression
     # ---------------------------------------------------------
@@ -152,3 +168,48 @@ def run_pca_experiments(X: pd.DataFrame, y: pd.Series):
     y_pred3 = pipe_block_pca.predict(X_test)
     r2_3 = r2_score(y_test, y_pred3)
     print(f"R2 PCA-Block: {r2_3:.5f}")
+
+
+def prepare_pca_metadata(X: pd.DataFrame, y: pd.Series) -> dict:
+    """
+    Run the preprocessing stack once on a train split and
+    infer which columns to feed into each PCA variant.
+    Returns a dict with all the column lists needed.
+    """
+    # same split logic you use elsewhere
+    X_train, X_test, y_train, y_test = time_train_test_split(X, y, test_frac=0.2)
+
+    # Build a "medium" pipeline and strip off the model
+    tmp_pipe = create_pipeline(make_ridge())
+    tmp_pipe.set_params(**FEATURE_LEVEL_CONFIGS["medium"])
+
+    preproc_steps = tmp_pipe.steps[:-1]
+    preproc_pipe = Pipeline(preproc_steps)
+
+    preproc_pipe.fit(X_train, y_train)
+
+    # Manually transform through the fitted preprocessing steps
+    X_train_feat = X_train
+    for name, step in preproc_pipe.steps:
+        if hasattr(step, "transform"):
+            X_train_feat = step.transform(X_train_feat)
+
+    if not isinstance(X_train_feat, pd.DataFrame):
+        X_train_feat = pd.DataFrame(X_train_feat, index=X_train.index)
+
+    # Hybrid PCA columns (compress these, keep others raw)
+    hybrid_cols = infer_pca_block_columns(X_train_feat)
+
+    # Block PCA groups
+    market_cols = columns_with_prefix(X_train_feat, ("M",))
+    price_cols  = columns_with_prefix(X_train_feat, ("P",))
+    vol_cols    = columns_with_prefix(X_train_feat, ("V",))
+    sent_cols   = columns_with_prefix(X_train_feat, ("S",))
+
+    return {
+        "hybrid_cols": hybrid_cols,
+        "market_cols": market_cols,
+        "price_cols":  price_cols,
+        "vol_cols":    vol_cols,
+        "sent_cols":   sent_cols,
+    }

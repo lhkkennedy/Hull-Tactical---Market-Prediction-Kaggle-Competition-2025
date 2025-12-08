@@ -1,0 +1,6 @@
+number,value,datetime_start,datetime_complete,duration,params_lasso_alpha,user_attrs_feat_level,user_attrs_label,user_attrs_model_type,user_attrs_pca_mode,user_attrs_use_PCA,state
+0,-0.0016559721242364045,2025-12-08 03:13:07.077766,2025-12-08 03:13:08.302695,0 days 00:00:01.224929,0.020193900150363646,extensive,final,lasso,pca_block,True,COMPLETE
+1,-0.002583794755727379,2025-12-08 03:13:08.303202,2025-12-08 03:13:09.500979,0 days 00:00:01.197777,0.0004626733801837819,extensive,final,lasso,pca_block,True,COMPLETE
+2,-0.0016559721242364045,2025-12-08 03:13:09.501983,2025-12-08 03:13:10.723644,0 days 00:00:01.221661,0.5834218870252268,extensive,final,lasso,pca_block,True,COMPLETE
+3,-0.0017766641001384365,2025-12-08 03:13:10.723644,2025-12-08 03:13:11.927662,0 days 00:00:01.204018,0.0004946582316027984,extensive,final,lasso,pca_block,True,COMPLETE
+4,-0.0016559721242364045,2025-12-08 03:13:11.928664,2025-12-08 03:13:13.158448,0 days 00:00:01.229784,0.3105089782616443,extensive,final,lasso,pca_block,True,COMPLETE
