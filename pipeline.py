@@ -25,10 +25,10 @@ def create_pipeline(model, selector: PrecomputedTopKSelector | None = None):
         ("base_cleaner", BaseCleaner()),
         ("target_lag", TargetLagBuilder(target_col=TARGET_COL, lag_col="lagged_target", drop_target=True)),
         ("momentum", TargetMomentumFeatures()),
-        ("features", CrossSectionalFeatureBuilder(sentinel=0.0)),
+        ("features", CrossSectionalFeatureBuilder()),
         ("vol", VolatilityIndicators()),
         ("drop", dropExcludedCols(cols_to_drop=list(EXCLUDED_COLS))),
-        ("imputer", MissingValueImputer(sentinel=0.0)),
+        ("imputer", MissingValueImputer(createMissingFlags=True)),
     ]
     if selector is not None:
         steps.append(("selector", selector))
@@ -44,10 +44,10 @@ def create_pca_pipeline(
         ("base_cleaner", BaseCleaner()),
         ("target_lag", TargetLagBuilder(target_col=TARGET_COL, lag_col="lagged_target", drop_target=True)),
         ("momentum", TargetMomentumFeatures()),
-        ("features", CrossSectionalFeatureBuilder(sentinel=0.0)),
+        ("features", CrossSectionalFeatureBuilder()),
         ("vol", VolatilityIndicators()),
         ("drop", dropExcludedCols(cols_to_drop=list(EXCLUDED_COLS))),
-        ("imputer", MissingValueImputer()),
+        ("imputer", MissingValueImputer(createMissingFlags=True)),
     ]
     if selector is not None:
         steps.append(("selector", selector))

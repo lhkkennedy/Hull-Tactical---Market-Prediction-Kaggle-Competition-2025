@@ -15,7 +15,6 @@ from config import path_str, TARGET_COL
 df_raw = load_data(path_str.TRAIN_DIR)
 df_cut_raw = df_raw[1006:]
 
-X = df_cut_raw.copy()
 y = df_cut_raw[TARGET_COL]
 
 
@@ -24,18 +23,15 @@ studies = run_all_models(
     X_train,
     y_train,
     model_types=[
-        # "ols", 
-        # "ridge", 
-        # "lasso", 
-        # "elastic", 
-        "lgbm", 
+
         "xgb"
     ],
-    n_trials=150,
-    n_splits=3,
-    prune_features=True,
-    use_PCA=False,
+    n_trials=100,
+    n_splits=5,
+    prune_features=False,
+    prune_mode="stable",
+    use_PCA=True,
 )
 
 out_dir = "optuna_results"
-save_studies_to_disk(studies, "PCA")
+save_studies_to_disk(studies, "prune")

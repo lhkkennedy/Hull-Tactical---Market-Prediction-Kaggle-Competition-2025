@@ -1,0 +1,2 @@
+model_type,feature_level,label,best_value,best_enet_alpha,best_enet_l1_ratio,best_selector__k
+elastic,extensive,prune,-0.00029149245858254663,0.0009865623131879392,0.6727905448070823,150

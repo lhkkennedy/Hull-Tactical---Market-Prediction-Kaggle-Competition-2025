@@ -66,10 +66,8 @@ class MissingValueImputer(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        sentinel:   float = 0.0,
         createMissingFlags: bool = False,
     ) -> None:
-        self.sentinel = sentinel
         self.createMissingFlags = createMissingFlags
 
     # -------------------------------------------------------------
@@ -77,14 +75,20 @@ class MissingValueImputer(BaseEstimator, TransformerMixin):
     # -------------------------------------------------------------
     def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None):
         # lock in params & remember column order
-        self._sentinel = float(self.sentinel)
         self._createMissingFlags = bool(self.createMissingFlags)
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         df = X.copy()
 
-        df = df.fillna(self._sentinel)
+        row_means = df.mean(axis=1, skipna=True)
+
+        for col in df.columns:
+            mask = df[col].isna()
+            if mask.any():
+                df[col + "_missing"] = mask.astype(int)
+                df.loc[mask, col] = row_means[mask]
+        
         if self._createMissingFlags:
             miss_flags = df.isna().astype("int8").add_suffix("_is_missing")
             df = pd.concat([df, miss_flags], axis=1)
@@ -131,10 +135,10 @@ class TargetMomentumFeatures(BaseEstimator, TransformerMixin):
         prefix:        str = "MOM_y",
         use_mean:      bool = True,
         use_std:       bool = True,
-        use_roc:       bool = False,
-        use_cum:       bool = False,
+        use_roc:       bool = True,
+        use_cum:       bool = True,
         use_ema:       bool = True,
-        use_ema_ratio: bool = False,
+        use_ema_ratio: bool = True,
         use_std_ratio: bool = True,
         use_lags:      bool = True,
         enabled:       bool = True,
@@ -315,9 +319,9 @@ class CrossSectionalFeatureBuilder(BaseEstimator, TransformerMixin):
         use_mean:            bool = True,
         use_std:             bool = True,
         use_roc:             bool = True,
-        use_cum:             bool = False,
+        use_cum:             bool = True,
         use_ema:             bool = True,
-        use_ema_ratio:       bool = False,
+        use_ema_ratio:       bool = True,
         use_lags:            bool = True,
         verbose:             bool = False,
         enabled:             bool = True,
@@ -846,60 +850,73 @@ class dropExcludedCols(BaseEstimator, TransformerMixin):
         return self
     def transform(self, X):
         return X.drop(self.cols_to_drop, axis=1, errors="ignore")
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_is_fitted
+import numpy as np
+import pandas as pd
 
 class PrecomputedTopKSelector(BaseEstimator, TransformerMixin):
-    def __init__(self, feature_ranking: list[str], k: int = 50, verbose: bool = False):
-        """
-        feature_ranking: global ranking of features (highest importance / corr first)
-        k: number of top features to keep
-        """
+    def __init__(
+        self,
+        feature_ranking: list[str],
+        k: int,
+        decorrelate: bool = True,
+        corr_thresh: float = 0.9,
+    ):
         self.feature_ranking = feature_ranking
         self.k = k
-        self.verbose = verbose
+        self.decorrelate = decorrelate
+        self.corr_thresh = corr_thresh
 
     def fit(self, X, y=None):
-        # Restrict ranking to features that actually exist in X
-        self.feature_ranking_in_X_ = [
-            f for f in self.feature_ranking if f in X.columns
-        ]
+        # make sure X is DataFrame with column names
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        selected: list[str] = []
+        used_cols: list[str] = []
+
+        # work on a subset restricted to columns that exist in X
+        available = [f for f in self.feature_ranking if f in X.columns]
+
+        if self.decorrelate:
+            # keep track of correlations among already-selected features
+            for feat in available:
+                if len(selected) == 0:
+                    selected.append(feat)
+                    used_cols.append(feat)
+                else:
+                    # correlation with already-selected features
+                    corr = X[used_cols + [feat]].corr().iloc[:-1, -1].abs().max()
+                    if corr < self.corr_thresh:
+                        selected.append(feat)
+                        used_cols.append(feat)
+
+                if len(selected) >= self.k:
+                    break
+        else:
+            selected = available[: self.k]
+
+        if len(selected) == 0:
+            raise ValueError("PrecomputedTopKSelector selected zero features.")
+
+        self.selected_features_ = selected
         return self
 
     def transform(self, X):
-        # Safety: if someone skipped fit, recover gracefully
-        if not hasattr(self, "feature_ranking_in_X_"):
-            self.fit(X)
-
-        # Intersect again in case columns changed between fit and transform
-        ranking_in_X = [f for f in self.feature_ranking_in_X_ if f in X.columns]
-
-        if self.k is None:
-            selected = ranking_in_X
-        else:
-            selected = ranking_in_X[: self.k]
-
-        if self.verbose:
-            print(f"[Selector] k={self.k} | Input cols: {X.shape[1]} | Selected: {len(selected)}")
-        
-        if not selected:
-             raise ValueError("No selected features found in X.columns!")
-
-        return X[selected]
-        if not selected:
+        check_is_fitted(self, "selected_features_")
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        # IMPORTANT: do NOT recompute; just select what we decided in fit
+        missing = [f for f in self.selected_features_ if f not in X.columns]
+        if missing:
+            # fail loudly so you catch pipeline / feature_space mismatches
             raise ValueError(
-                "[PrecomputedTopKSelector] After intersecting with X.columns, "
-                "no features remain to select."
+                f"PrecomputedTopKSelector expected features {missing} which are "
+                "missing from X. Check that the preprocessing is identical."
             )
+        return X.loc[:, self.selected_features_]
 
-        return X[selected]
-
-    def get_params(self, deep=True):
-        # Only expose k as a hyperparameter; feature_ranking is fixed metadata
-        return {"k": self.k, "feature_ranking": self.feature_ranking}
-
-    def set_params(self, **params):
-        for key, value in params.items():
-            setattr(self, key, value)
-        return self
 
 class PCATransformer(BaseEstimator, TransformerMixin):
     """

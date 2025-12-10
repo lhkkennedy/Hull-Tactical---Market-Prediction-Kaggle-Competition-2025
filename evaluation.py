@@ -99,7 +99,7 @@ def build_pipeline_from_best_trial(
     """
     - Load best trial params for the given (model_type, feat_level, label)
     - Build base estimator
-    - Optionally build selector (for 'pruned' label)
+    - Optionally build selector (if selector__k is present in params)
     - Assemble pipeline in the same structure as training
     - Apply FEATURE_LEVEL_CONFIGS[feat_level]
     """
@@ -110,30 +110,28 @@ def build_pipeline_from_best_trial(
         feat_level=feat_level,
     )
 
-    # base estimator
     est = build_estimator_from_params(model_type, params)
 
-    # optional selector for pruned configs
+    # If tuning used a selector (prune_features=True), Optuna will have selector__k
     selector = None
-    if label == "pruned" and feature_rankings is not None:
-        k = int(params.get("selector__k", 1))
+    if "selector__k" in params and feature_rankings is not None:
+        k = int(params["selector__k"])
         selector = PrecomputedTopKSelector(
             feature_ranking=feature_rankings,
             k=k,
-            verbose=True,
+            # keep these consistent with training:
+            decorrelate=True,
+            corr_thresh=0.9,
         )
 
-    # pipeline structure must match training
     pipe = create_pipeline(model=est, selector=selector)
 
-    # apply coarse feature-level config
+    # apply coarse feature-level config (none/simple/simple2/medium/advanced/extensive)
     cfg = FEATURE_LEVEL_CONFIGS.get(feat_level, {})
     if cfg:
         pipe.set_params(**cfg)
 
-    # we treat feature_level == feat_level in this new scheme
     feature_level = feat_level
-
     return pipe, params, feature_level, best_cv_value
 
 
@@ -152,7 +150,7 @@ def eval_best_config_on_holdout(
     test_frac: float = 0.2,
 ) -> Dict[str, Any]:
     """
-    - Rebuild tuned pipeline (with selector + feat_level config)
+    - Rebuild tuned pipeline (with selector if selector__k was tuned)
     - Chronological split
     - Train on train, evaluate on holdout
     """
@@ -168,6 +166,14 @@ def eval_best_config_on_holdout(
     X_train, X_test, y_train, y_test = time_train_test_split(
         X, y, test_frac=test_frac
     )
+
+    # DEBUG sanity check: columns should match
+    if set(X_train.columns) != set(X_test.columns):
+        diff_train = set(X_train.columns) - set(X_test.columns)
+        diff_test = set(X_test.columns) - set(X_train.columns)
+        print("[WARN] Column mismatch between train and test.")
+        print("  Only in train:", diff_train)
+        print("  Only in test :", diff_test)
 
     pipe.fit(X_train, y_train)
     y_pred_train = pipe.predict(X_train)
